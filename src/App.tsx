@@ -327,7 +327,7 @@ export default function App() {
       </main>
 
       <footer className="max-w-3xl mx-auto px-6 py-12 text-center text-slate-400 text-sm border-t border-slate-200">
-        <p>© 2026 PhishLens Security. Basic Edition.</p>
+        <p> 2026 Phishing lense a project for Cyber Hackathon.</p>
       </footer>
 
       <style>{`
