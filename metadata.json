@@ -1,0 +1,5 @@
+{
+  "name": "PhishLens",
+  "description": "Phishing link detection with visual risk analysis and security breakdown.",
+  "requestFramePermissions": []
+}
