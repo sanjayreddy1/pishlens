@@ -1,276 +1,265 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Shield, 
-  ShieldAlert, 
-  ShieldCheck, 
-  AlertTriangle, 
-  Info, 
-  Globe, 
+import React, { useState } from "react";
+import {
+  Search,
+  Shield,
+  ShieldAlert,
+  ShieldCheck,
+  AlertTriangle,
+  Info,
   ArrowRight,
-  CheckCircle2,
-  HelpCircle,
-  RefreshCw
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+  CheckCircle2
+} from "lucide-react";
+
+interface Issue {
+  type: string;
+  severity: number;
+  description: string;
+  mitigation: string;
+}
 
 interface AnalysisResult {
   url: string;
   score: number;
-  status: 'Safe' | 'Suspicious' | 'Phishing Risk';
-  issues: { type: string; severity: number; description: string; mitigation: string }[];
+  status: "Safe" | "Suspicious" | "Phishing Risk";
+  issues: Issue[];
   analysisTime: string;
 }
 
-const TypewriterText = ({ text, delay = 0, speed = 20 }: { text: string; delay?: number; speed?: number }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const [started, setStarted] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => setStarted(true), delay);
-    return () => clearTimeout(timer);
-  }, [delay]);
-
-  useEffect(() => {
-    if (!started) return;
-    
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < text.length) {
-        setDisplayedText(text.substring(0, index + 1));
-        index++;
-      } else {
-        clearInterval(interval);
-      }
-    }, speed);
-    
-    return () => clearInterval(interval);
-  }, [text, started, speed]);
-
-  return <span>{displayedText}</span>;
-};
-
-const TypingBar = ({ text, onComplete }: { text: string; onComplete: () => void }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  
-  useEffect(() => {
-    let index = 0;
-    const interval = setInterval(() => {
-      if (index < text.length) {
-        setDisplayedText(text.substring(0, index + 1));
-        index++;
-      } else {
-        clearInterval(interval);
-        setTimeout(onComplete, 500);
-      }
-    }, 50);
-    
-    return () => clearInterval(interval);
-  }, [text, onComplete]);
-
-  return (
-    <div className="flex items-center gap-2 bg-white border border-slate-300 rounded-md px-3 py-2 font-mono text-sm text-slate-700 shadow-inner w-full overflow-hidden whitespace-nowrap">
-      <Globe className="w-4 h-4 text-slate-400 shrink-0" />
-      <span className="border-r-2 border-slate-400 pr-1 animate-pulse">{displayedText}</span>
-    </div>
-  );
-};
-
 export default function App() {
 
-  const [url, setUrl] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
-  const [showTyping, setShowTyping] = useState(false);
+  const [url, setUrl] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loading,setLoading]=useState(false)
 
-  const startAnalysis = (e: React.FormEvent) => {
+  const scanUrl = async (e: React.FormEvent) => {
+
     e.preventDefault();
-    if (!url) return;
 
-    setError(null);
-    setResult(null);
-    setShowTyping(true);
-    setIsScanning(true);
-  };
+    setLoading(true)
+    setError(null)
+    setResult(null)
 
-  // ✅ FIXED FUNCTION
-  const finishAnalysis = async () => {
     try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
-      });
 
-      const contentType = response.headers.get("content-type");
+      const res = await fetch("/api/analyze",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json"},
+        body:JSON.stringify({url})
+      })
 
-      let data: any;
+      const data = await res.json()
 
-      if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-      } else {
-        const text = await response.text();
-        throw new Error(text || "Invalid server response");
+      if(!res.ok){
+        throw new Error(data.error || "Scan failed")
       }
 
-      if (!response.ok) {
-        throw new Error(data.error || "Failed to analyze URL");
-      }
+      setResult(data)
 
-      setResult(data);
+    } catch(err:any){
 
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setIsScanning(false);
-      setShowTyping(false);
+      setError(err.message)
+
     }
-  };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Safe': return 'text-green-600';
-      case 'Suspicious': return 'text-orange-500';
-      case 'Phishing Risk': return 'text-red-600';
-      default: return 'text-slate-500';
-    }
-  };
+    setLoading(false)
 
-  const getStatusBg = (status: string) => {
-    switch (status) {
-      case 'Safe': return 'bg-green-50 border-green-200';
-      case 'Suspicious': return 'bg-orange-50 border-orange-200';
-      case 'Phishing Risk': return 'bg-red-50 border-red-200';
-      default: return 'bg-slate-50 border-slate-200';
-    }
-  };
+  }
+
+  const getStatusColor=(status:string)=>{
+
+    if(status==="Safe") return "text-green-600"
+    if(status==="Suspicious") return "text-orange-500"
+    return "text-red-600"
+
+  }
+
+  const getStatusIcon=(status:string)=>{
+
+    if(status==="Safe") return <ShieldCheck className="w-8 h-8 text-green-600"/>
+    if(status==="Suspicious") return <AlertTriangle className="w-8 h-8 text-orange-500"/>
+    return <ShieldAlert className="w-8 h-8 text-red-600"/>
+
+  }
+
+  const getSummary=(score:number)=>{
+
+    if(score<20)
+      return "This website appears safe with minimal phishing indicators."
+
+    if(score<40)
+      return "This website shows minor suspicious characteristics. Be cautious when interacting."
+
+    if(score<60)
+      return "This website contains multiple suspicious indicators that could suggest phishing activity."
+
+    if(score<80)
+      return "High phishing probability. The URL contains several patterns commonly used in phishing attacks."
+
+    return "Extremely high phishing risk detected. Avoid interacting with this website."
+
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
 
-      <header className="bg-white border-b border-slate-200 py-4 px-6">
-        <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <Shield className="w-8 h-8 text-indigo-600" />
-          <h1 className="text-2xl font-bold">PhishLens</h1>
-        </div>
-      </header>
+    <div className="min-h-screen bg-slate-50 p-6">
 
-      <main className="max-w-3xl mx-auto px-6 py-12">
+      <div className="max-w-3xl mx-auto">
 
-        <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 mb-8">
-          <h2 className="text-xl font-semibold mb-2">URL Security Scanner</h2>
-          <p className="text-slate-500 mb-6 text-sm">
-            Enter a link to check for phishing threats and security risks.
-          </p>
-
-          <form onSubmit={startAnalysis} className="flex gap-2">
-            <input 
-              type="text" 
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com"
-              className="flex-1 border border-slate-300 rounded-lg px-4 py-3"
-              disabled={isScanning}
-            />
-
-            <button 
-              type="submit"
-              disabled={isScanning || !url}
-              className="bg-indigo-600 text-white px-6 py-3 rounded-lg flex items-center gap-2"
-            >
-              <Search className="w-5 h-5"/>
-              Scan
-            </button>
-          </form>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-100 text-red-600 text-sm rounded-lg flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4"/>
-              {error}
-            </div>
-          )}
+        <div className="flex items-center gap-3 mb-6">
+          <Shield className="w-8 h-8 text-indigo-600"/>
+          <h1 className="text-2xl font-bold">PhishLens Scanner</h1>
         </div>
 
-        <AnimatePresence>
-          {showTyping && (
-            <motion.div 
-              initial={{ opacity:0,y:10 }}
-              animate={{ opacity:1,y:0 }}
-              exit={{ opacity:0 }}
-              className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-8"
-            >
-              <p className="text-xs font-bold text-slate-400 uppercase mb-3">
-                Analyzing Address...
-              </p>
+        <form onSubmit={scanUrl} className="flex gap-2 mb-6">
 
-              <TypingBar text={url} onComplete={finishAnalysis}/>
+          <input
+            value={url}
+            onChange={(e)=>setUrl(e.target.value)}
+            placeholder="Enter URL to scan"
+            className="flex-1 border px-4 py-3 rounded-lg"
+          />
 
-              <div className="mt-6 flex flex-col items-center justify-center py-4">
+          <button
+            className="bg-indigo-600 text-white px-6 py-3 rounded-lg flex items-center gap-2"
+          >
+            <Search className="w-4 h-4"/>
+            Scan
+          </button>
 
-                <motion.div
-                  animate={{ rotate:360 }}
-                  transition={{ duration:2, repeat:Infinity, ease:"linear" }}
-                >
-                  <Search className="w-12 h-12 text-indigo-600"/>
-                </motion.div>
+        </form>
 
-                <p className="text-sm text-indigo-600 animate-pulse flex items-center gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin"/>
-                  Inspecting domain security...
-                </p>
+        {loading && (
+          <p className="text-indigo-600 mb-6">Scanning URL security...</p>
+        )}
 
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {error && (
+          <div className="bg-red-50 border border-red-200 p-3 rounded mb-6 text-red-600">
+            {error}
+          </div>
+        )}
 
-        {result && !isScanning && (
+        {result && (
+
           <div className="space-y-6">
 
-            <div className={`p-6 rounded-xl border-2 ${getStatusBg(result.status)}`}>
+            <div className="bg-white p-6 rounded-xl border shadow">
 
               <div className="flex items-center gap-4 mb-4">
 
-                {result.status === 'Safe'
-                  ? <ShieldCheck className="w-8 h-8 text-green-600"/>
-                  : result.status === 'Suspicious'
-                  ? <AlertTriangle className="w-8 h-8 text-orange-500"/>
-                  : <ShieldAlert className="w-8 h-8 text-red-600"/>
-                }
+                {getStatusIcon(result.status)}
 
                 <div>
-                  <h3 className={`text-2xl font-bold ${getStatusColor(result.status)}`}>
+                  <h2 className={`text-2xl font-bold ${getStatusColor(result.status)}`}>
                     {result.status}
-                  </h3>
+                  </h2>
 
-                  <p className="text-slate-600 text-sm">
+                  <p className="text-slate-600">
                     Risk Score: <b>{result.score}/100</b>
                   </p>
+
                 </div>
+
               </div>
 
-              <p className="text-slate-700">
-                <TypewriterText text={
-                  result.status === 'Safe'
-                  ? "This link appears legitimate."
-                  : result.status === 'Suspicious'
-                  ? "This link shows suspicious characteristics."
-                  : "High probability of phishing detected."
-                }/>
+              <p className="text-slate-700 leading-relaxed">
+                {getSummary(result.score)}
               </p>
+
+            </div>
+
+            <div className="bg-white border rounded-xl shadow">
+
+              <div className="bg-slate-50 p-4 border-b flex items-center gap-2">
+                <Info className="w-4 h-4"/>
+                <b>Detailed Threat Analysis</b>
+              </div>
+
+              {result.issues.length===0 && (
+
+                <div className="p-6 text-center text-slate-400">
+
+                  <CheckCircle2 className="w-10 h-10 mx-auto mb-2 opacity-40"/>
+
+                  No specific threats detected for this URL.
+
+                </div>
+
+              )}
+
+              {result.issues.map((issue,i)=>(
+
+                <div key={i} className="p-6 border-t">
+
+                  <div className="flex justify-between mb-2">
+
+                    <b>{issue.type}</b>
+
+                    <span className="text-red-500 text-sm">
+                      Risk {issue.severity}%
+                    </span>
+
+                  </div>
+
+                  <p className="text-slate-600 mb-4">
+                    {issue.description}
+                  </p>
+
+                  <div className="bg-indigo-50 p-4 rounded">
+
+                    <h4 className="text-indigo-700 text-sm font-bold mb-2 flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4"/>
+                      How to overcome this threat
+                    </h4>
+
+                    <p className="text-indigo-900 text-sm">
+                      {issue.mitigation}
+                    </p>
+
+                  </div>
+
+                </div>
+
+              ))}
+
+            </div>
+
+            <div className="bg-white p-6 rounded-xl border shadow">
+
+              <h3 className="font-bold mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-indigo-600"/>
+                General Safety Tips
+              </h3>
+
+              <ul className="space-y-3 text-sm text-slate-600">
+
+                <li className="flex gap-2">
+                  <ArrowRight className="w-4 h-4 mt-1 text-indigo-500"/>
+                  Always check the domain carefully before logging in.
+                </li>
+
+                <li className="flex gap-2">
+                  <ArrowRight className="w-4 h-4 mt-1 text-indigo-500"/>
+                  Avoid entering sensitive information on unknown websites.
+                </li>
+
+                <li className="flex gap-2">
+                  <ArrowRight className="w-4 h-4 mt-1 text-indigo-500"/>
+                  Use password managers to prevent phishing attacks.
+                </li>
+
+              </ul>
 
             </div>
 
           </div>
+
         )}
 
-      </main>
-
-      <footer className="max-w-3xl mx-auto px-6 py-12 text-center text-slate-400 text-sm border-t">
-        <p>2026 PhishLens • Cyber Hackathon Project</p>
-      </footer>
+      </div>
 
     </div>
+
   );
+
 }
