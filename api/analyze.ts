@@ -1,4 +1,4 @@
-export default async function handler(req: any, res: any) {
+export default function handler(req: any, res: any) {
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -13,11 +13,11 @@ export default async function handler(req: any, res: any) {
   let score = 0;
 
   const detectedIssues: {
-    type: string;
-    severity: number;
-    description: string;
-    mitigation: string;
-  }[] = [];
+    type: string
+    severity: number
+    description: string
+    mitigation: string
+  }[] = []
 
   try {
 
@@ -25,123 +25,117 @@ export default async function handler(req: any, res: any) {
     const hostname = urlObj.hostname;
     const protocol = urlObj.protocol;
 
-    // 1️⃣ HTTP vs HTTPS
+    // 1️⃣ HTTP instead of HTTPS
     if (protocol === "http:") {
+
       score += 25;
 
       detectedIssues.push({
         type: "Insecure Connection",
         severity: 25,
         description:
-          "The site uses HTTP instead of HTTPS which means the connection is not encrypted.",
+          "This website uses HTTP instead of HTTPS. HTTP connections are not encrypted and attackers can intercept sensitive information.",
         mitigation:
-          "Avoid entering passwords or financial information on HTTP websites."
+          "Avoid entering passwords or payment details on HTTP websites. Only use sites with HTTPS and a padlock icon."
       });
+
     }
 
-    // 2️⃣ URL Length Check
-    if (url.length > 75) {
-      score += 15;
+    // 2️⃣ Very long URL
+    if (url.length > 80) {
+
+      score += 20;
 
       detectedIssues.push({
-        type: "Long URL",
-        severity: 15,
+        type: "Unusually Long URL",
+        severity: 20,
         description:
-          "Phishing URLs are often very long to hide the real domain.",
+          "Phishing websites often use very long URLs to hide the real domain and confuse users.",
         mitigation:
-          "Look carefully at the beginning of the domain name."
+          "Always inspect the domain name at the beginning of the URL."
       });
+
     }
 
-    // 3️⃣ IP Address instead of domain
+    // 3️⃣ Suspicious keywords
+    const suspiciousKeywords = [
+      "login","verify","secure","update",
+      "bank","account","signin","password"
+    ];
+
+    const found = suspiciousKeywords.filter(word =>
+      url.toLowerCase().includes(word)
+    );
+
+    if (found.length > 0) {
+
+      const keywordScore = Math.min(found.length * 10, 30);
+      score += keywordScore;
+
+      detectedIssues.push({
+        type: "Suspicious Keywords in URL",
+        severity: keywordScore,
+        description:
+          `The URL contains suspicious keywords: ${found.join(", ")}. Attackers often use these words to trick users into entering credentials.`,
+        mitigation:
+          "Check if the website truly belongs to the brand mentioned before entering your credentials."
+      });
+
+    }
+
+    // 4️⃣ IP address instead of domain
     const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
 
     if (ipRegex.test(hostname)) {
 
-      score += 30;
+      score += 35;
 
       detectedIssues.push({
-        type: "IP Address Domain",
-        severity: 30,
+        type: "IP Address Used as Domain",
+        severity: 35,
         description:
-          "The URL uses an IP address instead of a domain name.",
+          "The URL uses a raw IP address instead of a domain name. Legitimate websites rarely do this.",
         mitigation:
-          "Legitimate companies typically use registered domain names."
+          "Avoid visiting links that use raw IP addresses unless you trust the source."
       });
 
     }
 
-    // 4️⃣ Suspicious keywords
-    const suspiciousKeywords = [
-      "login",
-      "verify",
-      "secure",
-      "update",
-      "banking",
-      "account",
-      "signin",
-      "paypal",
-      "google",
-      "microsoft",
-      "apple",
-      "security"
-    ];
+    // 5️⃣ Too many subdomains
+    const parts = hostname.split(".");
 
-    const foundKeywords = suspiciousKeywords.filter(keyword =>
-      url.toLowerCase().includes(keyword)
-    );
+    if (parts.length > 3) {
 
-    if (foundKeywords.length > 0) {
-
-      const keywordScore = Math.min(foundKeywords.length * 10, 30);
-
-      score += keywordScore;
+      score += 20;
 
       detectedIssues.push({
-        type: "Suspicious Keywords",
-        severity: keywordScore,
-        description: `Suspicious keywords detected: ${foundKeywords.join(", ")}`,
-        mitigation:
-          "Check whether the domain actually belongs to the brand mentioned."
-      });
-
-    }
-
-    // 5️⃣ Excessive subdomains
-    const subdomains = hostname.split(".");
-
-    if (subdomains.length > 3) {
-
-      score += 15;
-
-      detectedIssues.push({
-        type: "Excessive Subdomains",
-        severity: 15,
+        type: "Too Many Subdomains",
+        severity: 20,
         description:
-          "Too many subdomains detected which may hide the real domain.",
+          "Multiple subdomains may be used to disguise phishing sites and imitate trusted brands.",
         mitigation:
-          "Focus on the main domain before the extension (.com, .org)."
+          "Focus on the main domain name before the .com/.org extension."
       });
 
     }
 
-    // 6️⃣ Dash in domain
+    // 6️⃣ Hyphenated domain
     if (hostname.includes("-")) {
 
       score += 10;
 
       detectedIssues.push({
-        type: "Dashed Domain",
+        type: "Hyphenated Domain",
         severity: 10,
         description:
-          "Dashes are often used to create look-alike phishing domains.",
+          "Hyphens are commonly used to create look-alike domains that resemble legitimate brands.",
         mitigation:
-          "Verify the spelling of the website domain."
+          "Carefully check the spelling of the website domain."
       });
 
     }
 
-    // Limit score
+    // Cap risk score
     score = Math.min(score, 100);
 
     let safetyStatus: "Safe" | "Suspicious" | "Phishing Risk" = "Safe";
@@ -164,4 +158,5 @@ export default async function handler(req: any, res: any) {
     });
 
   }
+
 }
